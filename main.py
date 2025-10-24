@@ -4,6 +4,8 @@ import cv2
 from collections import deque
 import RotatoSettings
 
+# allows for controlling input according to keyboard
+debug = True
 
 def current_milli_time():
     return round(time.time() * 1000)
@@ -48,7 +50,7 @@ class redTask(task):
             # stop wheel power
             self.stoppedSpinning = True
             
-    def start(self):
+    def start(self) -> bool:
         # --- update task and global state --- #
         global state
         if state.redTaskActive:
@@ -203,16 +205,16 @@ def ColorLocator(image, imageDimX, imageDimY, shareThreshold, color_counts):
 
     return tuple(averageX, averageY)
 
+# --- global task values --- #
+rt = redTask()
+bt = blueTask()
+gt = greenTask()
+tasks = {rt, bt, gt}
 
 def main() :
     # --- Setup --- #
     currTime = 0.0
     lastTick = 0.0
-
-    rt = redTask()
-    bt = blueTask()
-    gt = greenTask()
-    tasks = {rt, bt, gt}
 
     # --- image setup --- #
     bot = Raspbot()
@@ -221,7 +223,7 @@ def main() :
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
 
     try:
-        bot.startupAction()
+        startupAction(bot)
 
     # --- update loop --- #
     taskQueue = deque(task)
@@ -234,18 +236,19 @@ def main() :
         ret, frame = cap.read()
 
         # threshold color
-        
-
+        colorResults = ColorCounter(frame) #TODO : change me
+        colorIdx = max(colorResults, key = colorResults.get)
+        colorPoint = ColorLocator(colorResults)
 
         # if color threshold achieved and task not in queue, insert task into queue; make sure to add bookkeeping to tasksInQueue
         # otherwise do nothing
-        currTask = tasks[i]
-        if taskQueue.count(currTask) is not 0:
-            taskQueue.append(currTask)
+        if colorIdx is not 0:
+            currTask = tasks[colorIdx - 1]
+            if taskQueue.count(currTask) is 0:
+                taskQueue.append(currTask)
 
         # --- Round-robin --- #
-        while taskQueue:
-            currTime
+        while taskQueue and currTime < RotatoSettings.timeLimit:
             nextTask = taskQueue.pop()
             result = nextTask.start()
             if not result:

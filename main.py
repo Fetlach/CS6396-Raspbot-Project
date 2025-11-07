@@ -3,12 +3,52 @@ import time
 import cv2
 from collections import deque
 import RotatoSettings
+from simple_pid import PID
 
 # allows for controlling input according to keyboard
 debug = True
 
 def current_milli_time():
     return round(time.time() * 1000)
+
+# how to use:
+# - Set to a target delta (IE: position of the midpoint) with setNewPoint
+#   - (internal PID is set to a zero position each time)
+#   - This also enables the PID
+# - call update every n seconds, use output to drive motors; will return false as second output when moving
+#   - PID likes fixed timestepping, so need to reset if delayed to much
+# - once the PID converges for n updates it will return true as the second output of the update function
+#   - It will automatically disable itself once this happens
+
+class PIDManager:
+    # https://simple-pid.readthedocs.io/en/latest/user_guide.html
+    def __PIDManager__(self):
+        self.pid = PID(1, 0.00, 0.05, setpoint=0)
+        self.pid.sample_time = 0.01
+        self.pid.output_limits = (-10, 10)    # Output value will be between 0 and 10
+        self.goal = 0.0
+        self.convergenceThreshold = 0.05
+        self.convergenceUpdates = 25
+        self.convergenceCounter = 0
+
+    def setNewPoint(self, v):
+        self.pid.set_auto_mode(True, last_output=0.0)
+        self.pid.setpoint(v)
+        self.goal = v
+        self.convergenceCounter = 0
+
+    def update(self, value):
+        currValue = self.pid(value)
+        if (abs(currValue) < self.convergenceThreshold):
+            self.convergenceCounter += 1
+        if (self.convergenceCounter >= self.convergenceUpdates):
+            self.disable()
+        return currValue, self.convergenceCounter >= self.convergenceUpdates
+
+    def disable(self):
+        self.pid.auto_mode = False
+
+PIDController = PIDManager()
 
 class robotState:
     def __robotState__(self):
@@ -93,19 +133,26 @@ class greenTask(task):
         self.ReachedTarget = False
     
     def GreenAction(self, x, y):
-        # if x < 0.4 move left
-        # elif x > 0.6 move right
-        # else return true
-        pass
+        control, reached = PIDController.update(x)
+        speed = round(abs(control) * 100)
+        if reached:
+            stop_robot()
+        elif (speed > 0):
+            rotate_right(speed)
+        else:
+            rotate_left(speed)
+        
+        self.ReachedTarget = reached
 
     def start(self) -> bool:
         global state
         state.geeenTaskActive = True
         completed = False
-        if state.blueTaskActive:
+        PIDController.setNewPoint()
+        if not state.blueTaskActive:
             completed = self.update()
         else:
-            time.sleep(self.endTime - current_milli_time())
+            sleep(self.endTime - current_milli_time())
 
         if completed:
             self.reset()
@@ -114,7 +161,7 @@ class greenTask(task):
     def update(self) -> bool:
         while(current_milli_time() < self.endTime):
             self.GreenAction()
-        return self.stoppedSpinning
+        return self.ReachedTarget
     
     def reset(self):
         global state
@@ -230,6 +277,7 @@ def main() :
     tasksInQueue = {} # dict to keep track of queued tasks
     while currTime < RotatoSettings.timeLimit:
         currTime = current_milli_time()
+        hyperperiod = currTime + RotatoSettings.hyperperiodTime
 
         # --- per-update functions --- #
         # read camera
@@ -248,11 +296,15 @@ def main() :
                 taskQueue.append(currTask)
 
         # --- Round-robin --- #
-        while taskQueue and currTime < RotatoSettings.timeLimit:
+        numTasks = len(taskQueue)
+        for i in range(numTasks):
             nextTask = taskQueue.pop()
             result = nextTask.start()
             if not result:
                 taskQueue.append(nextTask)
+
+        sleep(hyperperiod - current_milli_time())
+
         # if no task currently executing, pop next task from the queue and execute
         # when time exceeds, move to next task (maybe reschedule task if it does not complete in time?)
         # if no tasks, do nothing

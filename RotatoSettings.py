@@ -12,3 +12,6 @@ rotGradual_power = 0.5
 
 # color detection settings
 colorThreshold = 0.5
+
+# timeslice
+hyperperiodTime = 5000

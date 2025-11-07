@@ -48,7 +48,11 @@ class PIDManager:
     def disable(self):
         self.pid.auto_mode = False
 
-PIDController = PIDManager()
+PIDController_Green = PIDManager()
+PIDController_Blue = PIDManager()
+
+PIDOutput_Green = 0.0
+PIDOutput_Blue = 0.0
 
 class robotState:
     def __robotState__(self):
@@ -108,7 +112,7 @@ class redTask(task):
         if not state.greenTaskActive and not state.blueTaskActive:
             completed = self.update()
         else:
-            time.sleep(self.endTime - current_milli_time())
+            sleep(self.endTime - current_milli_time())
 
         # check if completed, reset if so
         if completed:
@@ -287,6 +291,12 @@ def main() :
         colorResults = ColorCounter(frame) #TODO : change me
         colorIdx = max(colorResults, key = colorResults.get)
         colorPoint = ColorLocator(colorResults)
+
+        # update PID targets based on current colors
+        if (colorIdx == 3):
+            PIDOutput_Blue = PIDController_Blue(colorPoint[0])
+        if (colorIdx == 2):
+            PIDOutput_Green = PIDController_Green(colorPoint[0])
 
         # if color threshold achieved and task not in queue, insert task into queue; make sure to add bookkeeping to tasksInQueue
         # otherwise do nothing

@@ -1,9 +1,12 @@
+# external libraries
 import threading
 import time
 import cv2
 from collections import deque
-import RotatoSettings
 from simple_pid import PID
+
+# our files
+import RotatoSettings
 
 # allows for controlling input according to keyboard
 debug = True
@@ -62,12 +65,20 @@ class robotState:
         currentRotation = 0.0
         
 state = robotState()
+bot = Raspbot()
 
 class task:
     def __task__(self, name, startTime, quantTime):
         self.name = name
         self.quantTime = quantTime
         self.endTime = startTime + quantTime
+
+    def setTimes(self, startTime, quantTime):
+        self.quantTime = quantTime
+        self.endTime = startTime + quantTime
+
+    def init(self):
+        pass
 
     def start(self) -> bool:
         pass
@@ -95,6 +106,8 @@ class redTask(task):
             self.stoppedSpinning = True
             
     def start(self) -> bool:
+        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
+
         # --- update task and global state --- #
         global state
         if state.redTaskActive:
@@ -128,38 +141,39 @@ class redTask(task):
         global state
         state.redTaskActive = False
 
-
 class greenTask(task):
     def __greenTask__(self, name, quantTime):
         super().__init__(name, quantTime)
-        self.MovingLeft = False
-        self.MovingRight = False
         self.ReachedTarget = False
     
     def GreenAction(self, x, y):
-        control, reached = PIDController.update(x)
-        speed = round(abs(control) * 100)
+        global bot
+        global PIDController_Green
+        control, reached = PIDController_Green.update(x)
+        speed = round(abs(control) * RotatoSettings.rotGradual_power)
         if reached:
-            stop_robot()
-        elif (speed > 0):
-            rotate_right(speed)
+            bot.stop()
         else:
-            rotate_left(speed)
+            bot.rotate_in_place(speed)
         
         self.ReachedTarget = reached
 
-    def start(self) -> bool:
+    def init(self):
         global state
-        state.geeenTaskActive = True
+        global PIDController_Green
+        global PIDOutput_Green
+        state.greenTaskActive = True
+        PIDController_Green.setNewPoint(PIDOutput_Green)
+        self.ReachedTarget = False
+
+    def start(self) -> bool:
+        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
+
         completed = False
-        PIDController.setNewPoint()
         if not state.blueTaskActive:
             completed = self.update()
-        else:
-            sleep(self.endTime - current_milli_time())
-
-        if completed:
-            self.reset()
+        
+        sleep(max(self.endTime - current_milli_time(), 0))
         return completed
         
     def update(self) -> bool:
@@ -174,30 +188,44 @@ class greenTask(task):
 class blueTask(task):
     def __blueTask__(self, name, quantTime):
         super().__init__(name, quantTime)
-        self.MovingLeft = False
-        self.MovingRight = False
+        self.ReachedTarget = False
+
+    def init(self):
+        global state
+        global PIDController_Blue
+        global PIDOutput_Blue
+        state.blueTaskActive = True
+        PIDController_Blue.setNewPoint(PIDOutput_Blue)
         self.ReachedTarget = False
     
     def start(self):
-        global state
-        state.blueTaskActive = True
+        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
+
         completed = False
         completed = self.update()
         
         if completed:
             self.reset()
+
+        sleep(max(self.endTime - current_milli_time(), 0))
         return completed
 
     def BlueAction(self, x, y):
-        # if x < 0.4 move left
-        # elif x > 0.6 move right
-        # else return true
-        pass
+        global bot
+        global PIDController_Blue
+        control, reached = PIDController_Blue.update(x)
+        speed = round(control * RotatoSettings.moveSideways_power_power)
+        if reached:
+            bot.stop()
+        else:
+            bot.strafe(speed)
+        
+        self.ReachedTarget = reached
         
     def update(self) -> bool:
         while(current_milli_time() < self.endTime):
             self.BlueAction()
-        return self.stoppedSpinning
+        return self.ReachedTarget
     
     def reset(self):
         global state
@@ -221,7 +249,10 @@ def classifyColor(r, g, b, shareThreshold) -> int:
     else:
         return 0
 
-def ColorCounter(image, imageDimX, imageDimY, shareThreshold) -> dict:
+def ColorCounter(image, shareThreshold) -> dict:
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    height, width, channels = rgb.shape
+
     # red = 1, green = 2, blue = 3, none = 0
     colorDict = {
         0: 0,
@@ -230,21 +261,24 @@ def ColorCounter(image, imageDimX, imageDimY, shareThreshold) -> dict:
         3: 0
     }
 
-    for i in range(imageDimY):
-        for j in range(imageDimX):
+    for i in range(height):
+        for j in range(width):
             pixel = image[i, j]
             colorDict[classifyColor(pixel[0], pixel[1], pixel[2], shareThreshold)] += 1
 
     return colorDict
 
-def ColorLocator(image, imageDimX, imageDimY, shareThreshold, color_counts):
+def ColorLocator(image, shareThreshold, color_counts):
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    height, width, channels = rgb.shape
+
     colorType = max(color_counts, key=color_counts.get)
     averageX = 0.0
     averageY = 0.0
-    numPoint = 0.0
+    numPoint = 0
 
-    for i in range(imageDimY):
-        for j in range(imageDimX):
+    for i in range(height):
+        for j in range(width):
             pixel = image[i, j]
             if classifyColor(pixel[0], pixel[1], pixel[2], shareThreshold) is colorType:
                 numPoint += 1
@@ -273,8 +307,8 @@ def main() :
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
 
-    try:
-        startupAction(bot)
+
+    startupAction(bot)
 
     # --- update loop --- #
     taskQueue = deque(task)
@@ -288,32 +322,35 @@ def main() :
         ret, frame = cap.read()
 
         # threshold color
-        colorResults = ColorCounter(frame) #TODO : change me
-        colorIdx = max(colorResults, key = colorResults.get)
-        colorPoint = ColorLocator(colorResults)
+        colorResults = ColorCounter(frame, RotatoSettings.colorThreshold) #TODO : change me
+        colorPoint = ColorLocator(frame, RotatoSettings.colorThreshold, colorResults)
+
+        # if color threshold achieved and task not in queue, insert task into queue; make sure to add bookkeeping to tasksInQueue
+        # otherwise do nothing
+        # initialize the task being added too
+        if colorIdx is not 0:
+            if taskQueue.count(colorIdx - 1) is 0:
+                taskQueue.append(colorIdx - 1)
+                tasks[colorIdx - 1].init()
 
         # update PID targets based on current colors
+        colorIdx = max(colorResults, key = colorResults.get)
         if (colorIdx == 3):
             PIDOutput_Blue = PIDController_Blue(colorPoint[0])
         if (colorIdx == 2):
             PIDOutput_Green = PIDController_Green(colorPoint[0])
 
-        # if color threshold achieved and task not in queue, insert task into queue; make sure to add bookkeeping to tasksInQueue
-        # otherwise do nothing
-        if colorIdx is not 0:
-            currTask = tasks[colorIdx - 1]
-            if taskQueue.count(currTask) is 0:
-                taskQueue.append(currTask)
-
         # --- Round-robin --- #
         numTasks = len(taskQueue)
         for i in range(numTasks):
-            nextTask = taskQueue.pop()
-            result = nextTask.start()
+            nextTaskIdx = taskQueue.pop()
+            result = tasks[nextTaskIdx].start()
             if not result:
-                taskQueue.append(nextTask)
+                taskQueue.append(nextTaskIdx)
+            else:
+                tasks[nextTaskIdx].reset()
 
-        sleep(hyperperiod - current_milli_time())
+        sleep(max(hyperperiod - current_milli_time(), 0))
 
         # if no task currently executing, pop next task from the queue and execute
         # when time exceeds, move to next task (maybe reschedule task if it does not complete in time?)

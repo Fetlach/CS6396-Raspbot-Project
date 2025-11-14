@@ -6,7 +6,7 @@ import numpy as np
 from typing import Dict, Tuple, Optional
 import config
 
-ColorCounts = Dict[str, int]
+ColorCounts = Dict[int, int]
 Point2D = Tuple[int, int]
 
 def count_colors_and_masks(frame_bgr):

@@ -36,10 +36,10 @@ MIN_PIXELS_VISIBLE = 1200
 # Vision: HSV thresholds for Green, Blue, Red (two ranges), tweak on hardware.
 # Values are (H_low, S_low, V_low, H_high, S_high, V_high)
 HSV_THRESHOLDS = {
-    "green": [(40, 70, 60, 85, 255, 255)],
-    "blue":  [(95, 80, 60, 135, 255, 255)],
+    2: [(40, 70, 60, 85, 255, 255)], # green is 2
+    3:  [(95, 80, 60, 135, 255, 255)], # blue is 3
     # Red wraps around HSV hue, so two ranges
-    "red":   [(0, 120, 70, 10, 255, 255), (170, 120, 70, 180, 255, 255)],
+    1:   [(0, 120, 70, 10, 255, 255), (170, 120, 70, 180, 255, 255)], #red is 1
 }
 
 RGB_THRESHOLDS = {

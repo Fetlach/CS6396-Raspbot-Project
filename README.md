@@ -1,4 +1,4 @@
-##Real time systems project raspbot##
+**Real time systems project raspbot**
 
 These are the driver code files that make the robot rotate or move sideways based on the color the camera on the bot sees:
 

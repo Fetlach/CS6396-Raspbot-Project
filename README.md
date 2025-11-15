@@ -2,7 +2,7 @@
 
 These are the driver code files that make the robot rotate or move sideways based on the color the camera on the bot sees:
 
-Task Function Description
+
 StartupAction(): Runs once when the program first begins execution and is
 never run again. The vehicle should spin in place for 360
 degrees using the mecanum wheels to indicate that

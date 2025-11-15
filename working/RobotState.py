@@ -1,10 +1,10 @@
 from robot import Raspbot
 class robotState:
     def __init__(self):
-        redTaskActive = False
-        blueTaskActive = False
-        greenTaskActive = False
-        currentRotation = 0.0
+        self.redTaskActive = False
+        self.blueTaskActive = False
+        self.greenTaskActive = False
+        self.currentRotation = 0.0
 
 
 state = robotState()

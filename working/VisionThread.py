@@ -2,7 +2,8 @@ import threading
 from McLumk_Wheel_Sports import *
 import threading
 import time
-from Task import task, redTask, blueTask, greenTask
+from Task import task
+from RGBTasks import redTask, blueTask, greenTask
 import config
 from robot import Raspbot
 # our files
@@ -18,7 +19,7 @@ import queue # <-----Thread safe implementation of queue
 
 
 
-def vision_thread_loop():
+def vision_thread_loop(shutdown_event):
   """
     This function runs in its own thread.
     Its only job is to read the camera and push unique tasks to the queue.
@@ -38,8 +39,8 @@ def vision_thread_loop():
     
     colorResults, masks = ColorCounter(frame, RotatoSettings.colorThreshold)
     colorIdx, colorPoint = ColorLocator(colorResults, masks)
-    print(f"Located centroid {colorPoint[0]}, {colorPoint[1]}")
-    print(f"dominant color {colorIdx}")
+    #print(f"Located centroid {colorPoint[0]}, {colorPoint[1]}")
+    #print(f"dominant color {colorIdx}")
     delta = colorPoint[0] -  (config.FRAME_WIDTH) // 2
     if colorIdx == 2:
       green_delta_value = delta
@@ -57,7 +58,7 @@ def vision_thread_loop():
           }
           task_queue.put(task_data, block = False)
           tasks_in_queue.add(colorIdx)
-          print(f"[Thread 1] Pushed task {colorIdx} to queue.")
+          #print(f"[Thread 1] Pushed task {colorIdx} to queue.")
         
         except queue.Full:
           pass

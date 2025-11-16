@@ -7,6 +7,10 @@ import RobotState
 import time
 import StartupAction
 from Task import task
+import config
+
+bot = Raspbot()
+
 class redTask(task):
     def __init__(self, name, quantTime):
         super().__init__(name, 0, quantTime)
@@ -74,15 +78,54 @@ class greenTask(task):
         self.ReachedTarget = False
     
     def GreenAction(self):
-        global PIDController_Green
-        control, reached = PIDController_Green.update(green_delta_value)
-        speed = round(abs(control) * RotatoSettings.rotGradual_power)
-        if reached:
-            RobotState.bot.stop()
-        else:
-            RobotState.bot.rotate_in_place(speed)
+        now = time.time()
         
-        self.ReachedTarget = reached
+        # If a timed rotation is already running, stop when time is up
+        # if config.GREEN_CTRL.get("active"):
+        #     if now >= GREEN_CTRL["until"]:
+        #         bot.stop()
+        #         GREEN_CTRL["active"] = False
+        #     return
+
+        # No active rotation → compute command from latest centroid
+        centroid = RobotState.task_queue.get('centroid')
+        if centroid is None:
+            bot.stop()
+            return
+
+        cx, cy = centroid
+        err_x = cx - (config.FRAME_WIDTH // 2)
+        angle_deg = bot._angle_deg_from_errx(err_x)
+
+        # Deadband to avoid jitter
+        if abs(angle_deg) <= config.GREEN_DEG_TOL:
+            bot.stop()
+            return
+
+        # Choose speed (clamped)
+        speed = bot.clamp(
+            config.ROTATE_SPEED_DEFAULT,
+            config.ROTATE_SPEED_MIN,
+            config.ROTATE_SPEED_MAX,
+        )
+
+        # Compute duration from spin rate; cap for safety
+        deg_per_sec = max(1e-6, config.SPIN_DEG_PER_SEC)
+        duration = min(abs(angle_deg) / deg_per_sec, config.GREEN_MAX_DURATION_S) / 2
+
+        # Direction: +angle => target right => rotate RIGHT (CW)
+        # Our HAL: rotate_in_place(+speed) = CCW/left, (-speed) = CW/right
+        signed_speed = -speed if angle_deg > 0 else +speed
+
+        # Start timed spin and remember when to stop
+
+        if angle_deg > 0:
+            rotate_right(speed)
+        else:
+            rotate_left(speed)
+        #rotate_left(speed)  # wrapper calls rotate_left/right under the hood
+        time.sleep(duration)
+        stop_robot()
 
     def setup(self):
         global state

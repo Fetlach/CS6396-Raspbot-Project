@@ -1,9 +1,13 @@
-from RobotState import blue_delta_value, green_delta_value, bot, robotState, state
+from RobotState import blue_delta_value, green_delta_value, robotState
 from PIDController import PIDController_Blue, PIDController_Green
 from McLumk_Wheel_Sports import *
-import RobotState
 from Utils import current_milli_time
 import RotatoSettings
+import RobotState
+import time
+import StartupAction
+
+
 
 class task:
     def __init__(self, name, startTime, quantTime):
@@ -27,150 +31,4 @@ class task:
     def reset(self) -> bool:
         pass
 
-class redTask(task):
-    def __init__(self, name, quantTime):
-        super().__init__(name, 0, quantTime)
-        self.startedSpinning = False
-        self.stoppedSpinning = False
-        self.stopSpinTimestamp = 0.0
 
-    def RedAction(self):
-        if (self.startedSpinning == False):
-            # apply wheel power
-            self.startedSpinning = True
-            self.stopSpinTimestamp = current_milli_time() + RotatoSettings.rot180Degree_time
-        elif (self.stoppedSpinning == False and current_milli_time() > self.stopSpinTimestamp) :
-            # stop wheel power
-            self.stoppedSpinning = True
-            
-    def start(self) -> bool:
-        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
-
-        # --- update task and global state --- #
-        if RobotState.state.redTaskActive:
-            # already active
-            pass
-        else:
-            # not active - initialize
-            self.startedSpinning = False
-            self.stoppedSpinning = False
-            self.stopSpinTimestamp = current_milli_time() + RotatoSettings.rot180Degree_time
-            RobotState.state.redTaskActive = True
-        
-        # check if can enter update loop
-        completed = False
-        if not RobotState.state.greenTaskActive and not RobotState.state.blueTaskActive:
-            completed = self.update()
-        else:
-            sleep(self.endTime - current_milli_time())
-
-        # check if completed, reset if so
-        if completed:
-            self.reset()
-        return completed
-    
-    def setup():
-        pass
-    
-    def update(self) -> bool:
-        while(current_milli_time() < self.endTime):
-            self.RedAction()
-        return self.stoppedSpinning
-    
-    def reset(self):
-        
-        RobotState.state.redTaskActive = False
-
-class greenTask(task):
-    def __init__(self, name, quantTime):
-        super().__init__(name, 0, quantTime)
-        self.ReachedTarget = False
-    
-    def GreenAction(self, x, y):
-        global bot
-        global PIDController_Green
-        control, reached = PIDController_Green.update(green_delta_value)
-        speed = round(abs(control) * RotatoSettings.rotGradual_power)
-        if reached:
-            bot.stop()
-        else:
-            bot.rotate_in_place(speed)
-        
-        self.ReachedTarget = reached
-
-    def setup(self):
-        global state
-        global PIDController_Green
-        global PIDOutput_Green
-        print(vars(RobotState.state))
-        RobotState.state.greenTaskActive = True
-        #PIDController_Green.setNewPoint(PIDOutput_Green)
-        self.ReachedTarget = False
-
-    def start(self) -> bool:
-        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
-
-        completed = False
-        
-        if not RobotState.state.blueTaskActive:
-            completed = self.update(x,y)
-        
-        sleep(max(self.endTime - current_milli_time(), 0))
-        return completed
-        
-    def update(self,x,y) -> bool:
-        while(current_milli_time() < self.endTime):
-            self.GreenAction(x,y)
-        return self.ReachedTarget
-    
-    def reset(self):
-        RobotState.state.greenTaskActive = False
-
-class blueTask(task):
-    def __init__(self, name, quantTime):
-        super().__init__(name, 0, quantTime)
-        self.ReachedTarget = False
-
-    def setup(self):
-        global state
-        global PIDController_Blue
-        global PIDOutput_Blue
-        RobotState.state.blueTaskActive = True
-        #PIDController_Blue.setNewPoint(PIDOutput_Blue)
-        self.ReachedTarget = False
-    
-    def start(self):
-        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
-
-        completed = False
-        completed = self.update()
-        
-        if completed:
-            self.reset()
-
-        sleep(max(self.endTime - current_milli_time(), 0))
-        return completed
-
-    def BlueAction(self):
-        global bot
-        global PIDController_Blue
-        control, reached = PIDController_Blue.update(blue_delta_value)
-        speed = round(control * RotatoSettings.moveSideways_power)
-        if reached:
-            bot.stop()
-        else:
-            if blue_delta_value < 0:
-              bot.move_left(speed)
-            else:
-              bot.move_right(speed)
-        
-        self.ReachedTarget = reached
-        
-    def update(self) -> bool:
-        while(current_milli_time() < self.endTime):
-            self.BlueAction()
-        return self.ReachedTarget
-    
-    def reset(self):
-        global state
-        RobotState.state.blueTaskActive = False

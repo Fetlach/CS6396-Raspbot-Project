@@ -2,8 +2,7 @@ import threading
 import time
 # our files
 import RotatoSettings
-from RobotState import blue_delta_value, green_delta_value, bot, shutdown_event, cap
-import RobotState
+from RobotState import blue_delta_value, green_delta_value, shutdown_event, bot, cap
 from Utils import current_milli_time
 import RobotState
 # allows for controlling input according to keyboard
@@ -12,7 +11,6 @@ import StartupAction
 from ColorCounter_and_Locator import ColorCounter, ColorLocator
 from VisionThread import vision_thread_loop
 from ActionThread import action_thread_loop
-import cv2
 
 import queue # <-----Thread safe implementation of queue
 
@@ -27,8 +25,8 @@ def main() :
 
     # ---  STart the Vision Thread and the Action Thread ---
     
-    vision_thread = threading.Thread(target = vision_thread_loop, args = (RobotState.shutdown_event,))
-    action_thread = threading.Thread(target = action_thread_loop, args = (RobotState.shutdown_event,))
+    vision_thread = threading.Thread(target = vision_thread_loop, args = (shutdown_event,))
+    action_thread = threading.Thread(target = action_thread_loop, args = (shutdown_event,))
     
     vision_thread.start()
     action_thread.start()

@@ -2,8 +2,6 @@ import time
 import config
 def current_milli_time():
     return round(time.time() * 1000)
-    
-    
 def _angle_deg_from_errx(err_X: int) -> float:
     """
     Convert horizontal pixel error to approximate yaw angle (degrees).

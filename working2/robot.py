@@ -213,16 +213,3 @@ class Raspbot:
         self.rotate_in_place(signed)
         self.sleep(dur)
         self.stop()
-    
-    def _angle_deg_from_errx(err_x: int) -> float:
-        """
-        Convert horizontal pixel error to approximate yaw angle (degrees).
-        +angle => target is to the RIGHT of center (needs CW/right rotation).
-        """
-        half_w = config.FRAME_WIDTH / 2.0
-        half_fov = config.CAMERA_HFOV_DEG / 2.0
-        # err_x is positive when centroid is right of center
-        return (err_x / half_w) * half_fov
-    
-    def clamp(x, lo, hi):
-        return lo if x < lo else hi if x > hi else x

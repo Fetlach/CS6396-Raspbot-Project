@@ -19,21 +19,14 @@ class redTask(task):
             rotate_left(RotatoSettings.rot180Degree_speed)
             time.sleep(RotatoSettings.rot180Degree_time)
             stop_robot()
-            # rotate_right(speed)
-            # time.sleep(duration)
-            # stop_robot()
-            # time.sleep(1)
         except KeyboardInterrupt:
-            # ????????,???????? When the user presses the stop button, the car stops moving.
                 stop_robot()
                 print("off.")
                 return True
         return True
-        
-
     
     def setup(self, centroid)->bool:
-        self.RedAction()
+        return self.RedAction()
     
     def update(self) -> bool:
         RobotState.state.redTaskActive = True
@@ -41,7 +34,6 @@ class redTask(task):
         return True
     
     def reset(self):
-        
         RobotState.state.redTaskActive = False
 
 class greenTask(task):
@@ -52,7 +44,7 @@ class greenTask(task):
     def GreenAction(self, centroid)->bool:
         speed = 100
         
-        print("Starting GrEEN TASK")
+        print("Starting Green Task")
         print(f"Centroid is {centroid}")
         if not centroid:
           return
@@ -61,12 +53,12 @@ class greenTask(task):
         print (f"cx is {cx}")
         err_x = cx - (config.FRAME_WIDTH // 2 )
         
-        
         angle_deg = _angle_deg_from_errx(err_x)
         duration = abs(angle_deg / config.SPIN_DEG_PER_SEC) / 2
         
         print(f"Duration is {duration}")
         print(f"GREEN DELTA VALUE IS {err_x}")
+        
         try:
         
           if err_x < 0:
@@ -83,7 +75,6 @@ class greenTask(task):
 
     def setup(self, centroid)->bool:
         return self.GreenAction(centroid)
-        
 
     def start(self) -> bool:
         self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
@@ -109,8 +100,39 @@ class blueTask(task):
         super().__init__(name, 0, quantTime)
         self.ReachedTarget = False
 
+    def BlueAction(self, centroid)->bool:
+        speed = 100
+        
+        print("Starting Blue Task")
+        print(f"Centroid is {centroid}")
+        if not centroid:
+          return
+        
+        cx, cy = centroid
+        print (f"cx is {cx}")
+        err_x = cx - (config.FRAME_WIDTH // 2 )
+        
+        angle_deg = _angle_deg_from_errx(err_x)
+        duration = abs(angle_deg / config.SPIN_DEG_PER_SEC) / 2
+        
+        print(f"Duration is {duration}")
+        print(f"BLUE DELTA VALUE IS {err_x}")
+        try:
+        
+          if err_x < 0:
+              move_right(speed)
+          else:
+              move_left(speed)
+        except KeyboardInterrupt:
+          print("Interrupted by keyboard ctrl c")
+          stop_robot()
+        
+        time.sleep(duration)
+        stop_robot()
+        return True
+    
     def setup(self, centroid)->bool:
-        return self.BlueAction()
+        return self.BlueAction(centroid)
     
     def start(self):
         self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
@@ -123,25 +145,6 @@ class blueTask(task):
 
         time.sleep(max(self.endTime - current_milli_time(), 0))
         return completed
-
-    def BlueAction(self, centroid)->bool:
-        speed = 100
-        print("Starting Blue task")
-        angle_deg = _angle_deg_from_errx(green_delta_value)
-        duration = abs(angle_deg / config.SPIN_DEG_PER_SEC) / 2
-        try:
-        
-          if blue_delta_value < 0:
-              move_left(speed)
-          else:
-              move_right(speed)
-        except:
-          
-          return False
-          
-        time.sleep(duration)
-        stop_robot()
-        return True
         
     def update(self) -> bool:
         while(current_milli_time() < self.endTime):
@@ -151,8 +154,6 @@ class blueTask(task):
     def reset(self):
         global state
         RobotState.state.blueTaskActive = False
-
-
 
 # --- global task values --- #
 rt = redTask("Task_Red", RotatoSettings.roundRobinQuant)

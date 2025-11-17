@@ -16,17 +16,12 @@ import cv2
 
 import queue # <-----Thread safe implementation of queue
 
-
-
-
 def main() :
     
     #--- Startup Spin ---
     StartupAction.StartupAction(bot)
-    
 
-    # ---  STart the Vision Thread and the Action Thread ---
-    
+    # ---  Start the Vision Thread and the Action Thread ---
     vision_thread = threading.Thread(target = vision_thread_loop, args = (RobotState.shutdown_event,))
     action_thread = threading.Thread(target = action_thread_loop, args = (RobotState.shutdown_event,))
     
@@ -52,7 +47,6 @@ def main() :
     except KeyboardInterrupt:
       print("\n[Main] KeyboardInterrupt. Signaling shutdown...")
     
-    
     # --- Cleanup ---
     shutdown_event.set()
     print("[Main] Waiting for threads to exit...")
@@ -64,9 +58,6 @@ def main() :
     cap.release()
     bot.stop()
     print("[Main] Program ended.")
-    
-    
-
 
 if __name__ == "__main__":
     print("Starting program")

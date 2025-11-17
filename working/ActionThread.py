@@ -18,8 +18,6 @@ import queue # Thread safe implementation of queue
 import RGBTasks
 
 # Global variables for task management
-# task_queue = queue.Queue()
-# tasks = []
 color_to_task_idx = {
     0: 0,  # invalid
     1: 0,  # Red
@@ -31,14 +29,12 @@ color_idx_to_color = {
     2: "Green",
     3: "Blue",
 }
-# tasks_in_queue = set()
 
 def action_thread_loop(shutdown_event):
     """
     This function runs in its own thread.
     Its job is to pull tasks from the queue and execute them.
     """
-    # global task_queue, tasks, color_to_task_idx, tasks_in_queue
     
     print("[Thread 2] Action thread started. Waiting for tasks...")
     
@@ -72,7 +68,6 @@ def action_thread_loop(shutdown_event):
             
             current_task = RGBTasks.tasks[task_idx]
 
-            
             # --- 3. Run Task ---
             # Execute task until completion or shutdown signal
             task_completed = False
@@ -81,7 +76,7 @@ def action_thread_loop(shutdown_event):
             while not task_completed and not shutdown_event.is_set():
                 # Safety check: abort if task takes too long
                 if time.time() - start_time > RotatoSettings.roundRobinQuant:
-                    print(f"[Thread 2] Task {task_idx} exceeded max duration. Aborting.")
+                    print(f"[Thread 2] Task {task_idx} exceeded max duration. Leaving.")
                     break
                 
                 # Run task update and check if completed
@@ -93,11 +88,19 @@ def action_thread_loop(shutdown_event):
                 
                 time.sleep(0.05)  # Control loop frequency (~20 Hz)
 
-            print(f"--- Task {task_idx} finished (completed={task_completed}) ---")
-            current_task.reset()  # Mark task as complete
+            if task_completed:
+                print(f"--- Task {task_idx} finished (completed={task_completed}) ---")
+                current_task.reset()  # Mark task as complete
+                RobotState.tasks_in_queue.discard(color)
+            else:
+                print(f"--- Task {color} paused, appended back to queue ---")
+                resume_task_data = {
+                    'color': color,
+                    'centroid': centroid,
+                    'delta': task_data['delta']
+                }
 
             # --- 4. Mark Task as Complete ---
-            RobotState.tasks_in_queue.discard(color)
             RobotState.task_queue.task_done()
             
         except Exception as e:

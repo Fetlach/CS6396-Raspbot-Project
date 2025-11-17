@@ -26,6 +26,11 @@ color_to_task_idx = {
     2: 1,  # Green
     3: 2,  # Blue
 }
+color_idx_to_color = {
+    1: "Red",
+    2: "Green",
+    3: "Blue",
+}
 # tasks_in_queue = set()
 
 def action_thread_loop(shutdown_event):
@@ -49,6 +54,7 @@ def action_thread_loop(shutdown_event):
                 continue 
 
             color = task_data['color']
+            centroid = task_data['centroid']
             task_idx = color_to_task_idx.get(color)
             
             if task_idx is None:
@@ -62,27 +68,25 @@ def action_thread_loop(shutdown_event):
                 RobotState.task_queue.task_done()
                 continue
             
-            print(f"[Thread 2] Popped task {color} (Idx {task_idx}). Centroid: {task_data['centroid']}")
-
-            # --- 2. Setup Task ---
+            print(f"[Thread 2] Popped task {color_idx_to_color[color]} (Idx {task_idx}). Centroid: {task_data['centroid']}")
+            
             current_task = RGBTasks.tasks[task_idx]
-            current_task.setup()
+
             
             # --- 3. Run Task ---
             # Execute task until completion or shutdown signal
             task_completed = False
             start_time = time.time()
-            max_duration = 5.0  # Safety timeout (seconds)
             
             while not task_completed and not shutdown_event.is_set():
                 # Safety check: abort if task takes too long
-                if time.time() - start_time > max_duration:
+                if time.time() - start_time > RotatoSettings.roundRobinQuant:
                     print(f"[Thread 2] Task {task_idx} exceeded max duration. Aborting.")
                     break
                 
                 # Run task update and check if completed
                 try:
-                    task_completed = current_task.update()
+                    task_completed = current_task.setup(centroid)
                 except Exception as e:
                     print(f"[Thread 2] Error during task update: {e}")
                     break
@@ -95,7 +99,7 @@ def action_thread_loop(shutdown_event):
             # --- 4. Mark Task as Complete ---
             RobotState.tasks_in_queue.discard(color)
             RobotState.task_queue.task_done()
-
+            
         except Exception as e:
             print(f"[Thread 2] An error occurred: {e}")
             # In case of error, try to clean up

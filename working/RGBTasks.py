@@ -1,21 +1,18 @@
 from RobotState import blue_delta_value, green_delta_value, robotState
 from PIDController import PIDController_Blue, PIDController_Green
 from McLumk_Wheel_Sports import *
-from Utils import current_milli_time
+from Utils import current_milli_time, _angle_deg_from_errx
 import RotatoSettings
 import RobotState
 import time
 import StartupAction
 from Task import task
 import config
-
-bot = Raspbot()
-
 class redTask(task):
     def __init__(self, name, quantTime):
         super().__init__(name, 0, quantTime)
 
-    def RedAction(self):
+    def RedAction(self)->bool:
         
         print("[RedAction] Starting 180-degree turn...")
         try:
@@ -30,38 +27,13 @@ class redTask(task):
             # ????????,???????? When the user presses the stop button, the car stops moving.
                 stop_robot()
                 print("off.")
+                return True
+        return True
         
-            
-        
-            
-    def start(self) -> bool:
-        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
 
-        # --- update task and global state --- #
-        if RobotState.state.redTaskActive:
-            # already active
-            pass
-        else:
-            # not active - initialize
-            self.startedSpinning = False
-            self.stoppedSpinning = False
-            self.stopSpinTimestamp = current_milli_time() + RotatoSettings.rot180Degree_time
-            RobotState.state.redTaskActive = True
-        
-        # check if can enter update loop
-        completed = False
-        if not RobotState.state.greenTaskActive and not RobotState.state.blueTaskActive:
-            completed = self.update()
-        else:
-            time.sleep(self.endTime - current_milli_time())
-
-        # check if completed, reset if so
-        if completed:
-            self.reset()
-        return completed
     
-    def setup(self):
-        pass
+    def setup(self, centroid)->bool:
+        self.RedAction()
     
     def update(self) -> bool:
         RobotState.state.redTaskActive = True
@@ -77,63 +49,41 @@ class greenTask(task):
         super().__init__(name, 0, quantTime)
         self.ReachedTarget = False
     
-    def GreenAction(self):
-        now = time.time()
+    def GreenAction(self, centroid)->bool:
+        speed = 100
         
-        # If a timed rotation is already running, stop when time is up
-        # if config.GREEN_CTRL.get("active"):
-        #     if now >= GREEN_CTRL["until"]:
-        #         bot.stop()
-        #         GREEN_CTRL["active"] = False
-        #     return
-
-        # No active rotation → compute command from latest centroid
-        centroid = RobotState.task_queue.get('centroid')
-        if centroid is None:
-            bot.stop()
-            return
-
+        print("Starting GrEEN TASK")
+        print(f"Centroid is {centroid}")
+        if not centroid:
+          return
+        
         cx, cy = centroid
-        err_x = cx - (config.FRAME_WIDTH // 2)
-        angle_deg = bot._angle_deg_from_errx(err_x)
-
-        # Deadband to avoid jitter
-        if abs(angle_deg) <= config.GREEN_DEG_TOL:
-            bot.stop()
-            return
-
-        # Choose speed (clamped)
-        speed = bot.clamp(
-            config.ROTATE_SPEED_DEFAULT,
-            config.ROTATE_SPEED_MIN,
-            config.ROTATE_SPEED_MAX,
-        )
-
-        # Compute duration from spin rate; cap for safety
-        deg_per_sec = max(1e-6, config.SPIN_DEG_PER_SEC)
-        duration = min(abs(angle_deg) / deg_per_sec, config.GREEN_MAX_DURATION_S) / 2
-
-        # Direction: +angle => target right => rotate RIGHT (CW)
-        # Our HAL: rotate_in_place(+speed) = CCW/left, (-speed) = CW/right
-        signed_speed = -speed if angle_deg > 0 else +speed
-
-        # Start timed spin and remember when to stop
-
-        if angle_deg > 0:
-            rotate_right(speed)
-        else:
-            rotate_left(speed)
-        #rotate_left(speed)  # wrapper calls rotate_left/right under the hood
+        print (f"cx is {cx}")
+        err_x = cx - (config.FRAME_WIDTH // 2 )
+        
+        
+        angle_deg = _angle_deg_from_errx(err_x)
+        duration = abs(angle_deg / config.SPIN_DEG_PER_SEC) / 2
+        
+        print(f"Duration is {duration}")
+        print(f"GREEN DELTA VALUE IS {err_x}")
+        try:
+        
+          if err_x < 0:
+              rotate_left(speed)
+          else:
+              rotate_right(speed)
+        except KeyboardInterrupt:
+          print("Interrupted by keyboard ctrl c")
+          stop_robot()
+        
         time.sleep(duration)
         stop_robot()
+        return True
 
-    def setup(self):
-        global state
-        global PIDController_Green
-        global PIDOutput_Green
-        RobotState.state.greenTaskActive = True
-        #PIDController_Green.setNewPoint(PIDOutput_Green)
-        self.ReachedTarget = False
+    def setup(self, centroid)->bool:
+        return self.GreenAction(centroid)
+        
 
     def start(self) -> bool:
         self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
@@ -159,13 +109,8 @@ class blueTask(task):
         super().__init__(name, 0, quantTime)
         self.ReachedTarget = False
 
-    def setup(self):
-        global state
-        global PIDController_Blue
-        global PIDOutput_Blue
-        RobotState.state.blueTaskActive = True
-        #PIDController_Blue.setNewPoint(PIDOutput_Blue)
-        self.ReachedTarget = False
+    def setup(self, centroid)->bool:
+        return self.BlueAction()
     
     def start(self):
         self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
@@ -179,19 +124,24 @@ class blueTask(task):
         time.sleep(max(self.endTime - current_milli_time(), 0))
         return completed
 
-    def BlueAction(self):
-        global PIDController_Blue
-        control, reached = PIDController_Blue.update(blue_delta_value)
-        speed = round(control * RotatoSettings.moveSideways_power)
-        if reached:
-            RobotState.bot.stop()
-        else:
-            if blue_delta_value < 0:
-              RobotState.bot.strafe(speed*(-1))
-            else:
-              RobotState.bot.strafe(speed)
+    def BlueAction(self, centroid)->bool:
+        speed = 100
+        print("Starting Blue task")
+        angle_deg = _angle_deg_from_errx(green_delta_value)
+        duration = abs(angle_deg / config.SPIN_DEG_PER_SEC) / 2
+        try:
         
-        self.ReachedTarget = reached
+          if blue_delta_value < 0:
+              move_left(speed)
+          else:
+              move_right(speed)
+        except:
+          
+          return False
+          
+        time.sleep(duration)
+        stop_robot()
+        return True
         
     def update(self) -> bool:
         while(current_milli_time() < self.endTime):

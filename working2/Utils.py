@@ -12,4 +12,4 @@ def _angle_deg_from_errx(err_X: int) -> float:
     half_fov = config.CAMERA_HFOV_DEG / 2.0
 
     # err_x is positive when centroid is right of center
-    return (err_x / half_w) * half_fov
+    return (err_X / half_w) * half_fov

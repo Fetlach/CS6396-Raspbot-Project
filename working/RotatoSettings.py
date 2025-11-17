@@ -2,10 +2,10 @@
 # program timing settings
 timeLimit = 30 * 1000
 updateTick = 1
-roundRobinQuant = 50
+roundRobinQuant = 5
 
 # motors
-rot180Degree_time = 1
+rot180Degree_time = 0.5
 rot180Degree_power = 0.5
 moveSideways_power = 0.5
 rotGradual_power = 0.5

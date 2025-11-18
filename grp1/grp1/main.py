@@ -1,4 +1,4 @@
-
+from McLumk_Wheel_Sports import *
 import time
 # our files
 import RotatoSettings
@@ -63,6 +63,7 @@ def main() :
         blue = blueTask()
         blue.BlueAction(blue_delta_value)
 
+    stop_robot()
     cap.release()
     
     

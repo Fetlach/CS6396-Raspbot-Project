@@ -17,7 +17,10 @@ class greenTask(task):
     def GreenAction(self, green_delta_value):
         self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
 
-        speed = 100
+        lerp = float(abs(green_delta_value)) / float(config.FRAME_WIDTH / 2.0)
+        B = config.ROTATE_SPEED_MIN
+        A = config.ROTATE_SPEED_MAX
+        speed = round((lerp * A) + ((1.0 - lerp) * B))
         angle_deg = _angle_deg_from_errx(green_delta_value)
         duration = abs(angle_deg / config.SPIN_DEG_PER_SEC) / 2
         

@@ -2,7 +2,8 @@
 
 # Camera horizontal field of view (tune to your camera)
 CAMERA_HFOV_DEG = 62.0
-CAMERA_HDEADZONE_DEG = 5.0
+CAMERA_HDEADZONE_DEG = 3.0
+
 
 # Spin calibration (how fast your bot rotates at a given library "speed")
 SPIN_DEG_PER_SEC = 120.0   # measure on your robot

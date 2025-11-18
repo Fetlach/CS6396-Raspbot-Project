@@ -15,7 +15,7 @@ class greenTask(task):
         super().__init__(name, 0, quantTime)
     
     def GreenAction(self, green_delta_value):
-        self.setTimes(current_milli_time(), RotatoSettings.rot180Degree_time)
+        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
 
         speed = 100
         angle_deg = _angle_deg_from_errx(green_delta_value)

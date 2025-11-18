@@ -15,7 +15,7 @@ class blueTask(task):
         self.IsActive = False
 
     def BlueAction(self, blue_delta_value):
-        self.setTimes(current_milli_time(), RotatoSettings.rot180Degree_time)
+        self.setTimes(current_milli_time(), RotatoSettings.roundRobinQuant)
 
         speed = 100
         angle_deg = _angle_deg_from_errx(blue_delta_value)
@@ -25,10 +25,9 @@ class blueTask(task):
         print(f"BLUE DELTA VALUE IS {blue_delta_value}")
         
         if blue_delta_value < 0:
-            move_left(speed)
-            
-        else:
             move_right(speed)
+        else:
+            move_left(speed)
         
         endTime = current_milli_time() + duration
         curTime = current_milli_time()
